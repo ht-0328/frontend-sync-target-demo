@@ -5,6 +5,13 @@ API側から同期されたファイルを受け取る検証用リポジトリ
 
 このリポジトリは、API側リポジトリ (`ht-0328/api-sync-source-demo`) から特定のディレクトリ配下のファイルを取り込む**同期先リポジトリ**です。
 
+### 必要なシークレット (Secret)
+同期元リポジトリが private の場合でもアクセスできるようにするため、GitHub Actionsから取得する際に Personal Access Token (PAT) を使用します。
+このリポジトリ (`frontend-sync-target-demo`) の Repository secret に以下の設定が**必須**となります。
+
+- **Secret名**: `SOURCE_REPO_PAT`
+- **値**: 同期元リポジトリ (`api-sync-source-demo`) を読み取れる権限 (repo スコープなど) を持った Personal Access Token
+
 - **実行方法**: GitHub Actions の `Sync from API` ワークフローを手動実行 (`workflow_dispatch`) することで同期を行います。
 - **取得範囲**: `sparse-checkout` を使用し、API側リポジトリの一部である `sync-source/` 配下のみを効率的に取得します。
 - **同期先**: 取り込んだファイルは、このリポジトリの `synced/api/` ディレクトリ配下に同期されます。

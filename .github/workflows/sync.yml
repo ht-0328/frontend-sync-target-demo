@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ht-0328/api-sync-source-demo
+          token: ${{ secrets.SOURCE_REPO_PAT }}
           path: source-repo
           sparse-checkout: sync-source/
 
