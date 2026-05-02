@@ -1,0 +1,135 @@
+name: Deploy to GCP
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_after_deploy:
+        description: 'デプロイ後にJobを実行する'
+        required: false
+        default: false
+        type: boolean
+
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate Short SHA
+        id: vars
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Authenticate with GCP
+        uses: google-github-actions/auth@v2
+        with:
+          # 以下はGitHub Secrets/Variablesで設定すること
+          # GCP_WORKLOAD_IDENTITY_PROVIDER: 例 "projects/1234567890/locations/global/workloadIdentityPools/my-pool/providers/my-provider"
+          # GCP_DEPLOY_SERVICE_ACCOUNT: 例 "my-deploy-sa@crypto-autotrading-lab.iam.gserviceaccount.com"
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          # GCP_PROJECT_ID: 例 "crypto-autotrading-lab"
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+      - name: Setup GCP Infrastructure
+        run: |
+          set -e
+          echo "Enabling necessary APIs..."
+          gcloud services enable \
+            serviceusage.googleapis.com \
+            iam.googleapis.com \
+            iamcredentials.googleapis.com \
+            cloudbuild.googleapis.com \
+            artifactregistry.googleapis.com \
+            run.googleapis.com \
+            storage.googleapis.com
+
+          echo "Creating Artifact Registry repository if it doesn't exist..."
+          if ! gcloud artifacts repositories describe ${{ vars.ARTIFACT_REPOSITORY }} --location=${{ vars.GCP_REGION }} > /dev/null 2>&1; then
+            gcloud artifacts repositories create ${{ vars.ARTIFACT_REPOSITORY }} \
+              --repository-format=docker \
+              --location=${{ vars.GCP_REGION }} \
+              --description="Docker repository for crypto-autotrading-lab"
+          else
+            echo "Artifact Registry repository already exists."
+          fi
+
+          echo "Creating GCS bucket if it doesn't exist..."
+          if ! gcloud storage buckets describe gs://${{ vars.GCS_BUCKET_NAME }} > /dev/null 2>&1; then
+            gcloud storage buckets create gs://${{ vars.GCS_BUCKET_NAME }} --location=${{ vars.GCP_REGION }}
+          else
+            echo "GCS bucket already exists."
+          fi
+
+          echo "Creating Cloud Build Service Account..."
+          if ! gcloud iam service-accounts describe ${{ vars.BUILD_SERVICE_ACCOUNT_NAME }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com > /dev/null 2>&1; then
+            gcloud iam service-accounts create ${{ vars.BUILD_SERVICE_ACCOUNT_NAME }} \
+              --display-name="Cloud Build Builder"
+          else
+            echo "Cloud Build Service Account already exists."
+          fi
+
+          echo "Creating Cloud Run Runtime Service Account..."
+          if ! gcloud iam service-accounts describe ${{ vars.RUNTIME_SERVICE_ACCOUNT_NAME }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com > /dev/null 2>&1; then
+            gcloud iam service-accounts create ${{ vars.RUNTIME_SERVICE_ACCOUNT_NAME }} \
+              --display-name="Cloud Run Runner"
+          else
+            echo "Cloud Run Runtime Service Account already exists."
+          fi
+
+          echo "Granting roles to Cloud Build Service Account..."
+          gcloud projects add-iam-policy-binding ${{ vars.GCP_PROJECT_ID }} \
+            --member="serviceAccount:${{ vars.BUILD_SERVICE_ACCOUNT_NAME }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com" \
+            --role="roles/artifactregistry.writer" --condition=None > /dev/null
+          gcloud projects add-iam-policy-binding ${{ vars.GCP_PROJECT_ID }} \
+            --member="serviceAccount:${{ vars.BUILD_SERVICE_ACCOUNT_NAME }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com" \
+            --role="roles/logging.logWriter" --condition=None > /dev/null
+          gcloud projects add-iam-policy-binding ${{ vars.GCP_PROJECT_ID }} \
+            --member="serviceAccount:${{ vars.BUILD_SERVICE_ACCOUNT_NAME }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com" \
+            --role="roles/storage.objectAdmin" --condition=None > /dev/null
+
+          echo "Granting roles to Cloud Run Runtime Service Account..."
+          # Grant access specifically to the bucket
+          gcloud storage buckets add-iam-policy-binding gs://${{ vars.GCS_BUCKET_NAME }} \
+            --member="serviceAccount:${{ vars.RUNTIME_SERVICE_ACCOUNT_NAME }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com" \
+            --role="roles/storage.objectAdmin" > /dev/null
+
+      - name: Build and Push Docker Image with Cloud Build
+        run: |
+          gcloud builds submit \
+            --config cloudbuild.yaml \
+            --substitutions=_REGION=${{ vars.GCP_REGION }},_PROJECT_ID=${{ vars.GCP_PROJECT_ID }},_ARTIFACT_REPOSITORY=${{ vars.ARTIFACT_REPOSITORY }},_IMAGE_NAME=${{ vars.IMAGE_NAME }},_SHORT_SHA=${{ env.SHORT_SHA }} \
+            --service-account=projects/${{ vars.GCP_PROJECT_ID }}/serviceAccounts/${{ vars.BUILD_SERVICE_ACCOUNT_NAME }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            .
+
+      - name: Deploy to Cloud Run Job
+        run: |
+          gcloud run jobs deploy ${{ vars.CLOUD_RUN_JOB_NAME }} \
+            --image ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REPOSITORY }}/${{ vars.IMAGE_NAME }}:${{ env.SHORT_SHA }} \
+            --region ${{ vars.GCP_REGION }} \
+            --service-account ${{ vars.RUNTIME_SERVICE_ACCOUNT_NAME }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-env-vars "APP_DATA_DIR=/mnt/gcs/data" \
+            --add-volume=name=gcs,type=cloud-storage,bucket=${{ vars.GCS_BUCKET_NAME }},readonly=false \
+            --add-volume-mount=volume=gcs,mount-path=/mnt/gcs \
+            --tasks 1 \
+            --max-retries 0
+
+      - name: Verify Deployment
+        run: |
+          gcloud run jobs describe ${{ vars.CLOUD_RUN_JOB_NAME }} \
+            --region ${{ vars.GCP_REGION }}
+
+      - name: Execute Job (if requested)
+        if: ${{ github.event.inputs.execute_after_deploy == 'true' }}
+        run: |
+          gcloud run jobs execute ${{ vars.CLOUD_RUN_JOB_NAME }} \
+            --region ${{ vars.GCP_REGION }} \
+            --wait

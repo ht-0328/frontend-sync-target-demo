@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: ../../
+      dockerfile: docker/app/Dockerfile
+    container_name: crypto-autotrading
+    restart: unless-stopped
+    environment:
+      - APP_DATA_DIR=/app/data
+      - APP_CONFIG_PATH=/app/config/application-gmo.yaml
+    volumes:
+      - ../../config:/app/config
+      - ../../data:/app/data

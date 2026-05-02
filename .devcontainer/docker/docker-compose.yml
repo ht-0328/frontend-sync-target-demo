@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: ./dev
+    container_name: kotlin-app
+    command: sleep infinity
+    volumes:
+      - ../../:/workspace
+      - ${HOME}/.ssh:/root/.ssh:ro
+    working_dir: /workspace
+    environment:
+      - APP_DATA_DIR=/workspace/data
+      - APP_CONFIG_PATH=/workspace/config/application-wiremock.yaml
+    networks:
+      - container-link
+
+  wiremock:
+    image: wiremock/wiremock:3.5.2
+    container_name: wiremock
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../mocks/wiremock:/home/wiremock
+    networks:
+      - container-link
+
+networks:
+  container-link:
+    name: dev.internal
+    driver: bridge

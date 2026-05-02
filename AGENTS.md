@@ -1,66 +1,27 @@
-# AIエージェント向け基本ルール
+# AI Agents Core Instructions
 
-このリポジトリで作業するAIエージェントは、以下のルールに従って作業を行ってください。
+このリポジトリで作業するすべてのAIコーディングエージェント（Jules, Codex等）向けの最重要ルールです。
 
-## 作業の基本方針
-- 変更理由、実現方法、影響範囲が分かるように作業すること
-- 目的に関係ないファイルは変更しないこと
-- 不要に大きい変更を避けること
-- 既存の構成や命名を尊重すること
+## 1. ワークフローの強制ルール（必ず最初に行うこと）
+作業を開始する前に、自身のタスク内容に応じて **必ず以下のドキュメントを読み込み（cat等）、制約とフォーマットをコンテキストにロード** してください。
 
-## 言語ルール
-- 以下の項目は**日本語**で書くこと:
-  - README
-  - 作成するドキュメント
-  - コメント
-  - Pull Request本文
-  - Pull Requestタイトル
-  - コミットメッセージの description 部分
-- ただし、以下の機械的に使う名前は**英数字のまま**でよいこと:
-  - ファイル名
-  - ディレクトリ名
-  - ブランチ名
-  - GitHub Actionsの構文
-  - Secret名
-  - JSONキー名
-  - 外部Action名など
+* **基本の制約と期待動作**
+  * 読込対象: `docs/ai/agents-guidelines.md` （絶対禁止事項とチェック項目）
+  * 読込対象: `docs/ai/prompt-template.md` （出力フォーマット）
 
-## コミットメッセージルール
-コミットメッセージは **Conventional Commits 1.0.0** に合わせてください。
+* **Pull Requestを作成・レビューする場合**
+  * 読込対象: `.github/pull_request_template.md`
+  * 読込対象: `docs/ai/review-checklist.md`
 
-### 形式
-```
-<type>[optional scope]: <description>
-```
-- `<type>` は英語のままとすること
-- `<description>` は日本語で書くこと
+* **コード変更の粒度やレイヤー境界を扱う場合**
+  * 読込対象: `docs/ai/change-granularity.md`
+  * 読込対象: `docs/ai/kotlin-boundary-rules.md`
 
-### type の種類
-原則として以下を使用してください。
-- `feat`: 新規機能
-- `fix`: 不具合修正
-- `docs`: ドキュメント変更
-- `ci`: GitHub ActionsなどCI設定の変更
-- `chore`: 雑務・設定・生成物など
-- `refactor`: 振る舞いを変えない整理
-- `test`: テスト追加・修正
+* **AIスキルの適用が必要な場合**
+  * 読込対象: `docs/ai/skills-catalog.md`
+  * さらに、必要なスキルの詳細定義（例: `docs/ai/skills/spec-writer.SKILL.md`）を読み込むこと。
 
-### 例
-- `docs: AGENTS.mdを追加`
-- `docs: PRテンプレートを追加`
-- `ci: 同期Workflowを追加`
-- `feat: sparse-checkoutによる同期機能を追加`
-- `fix: 同期Workflowの構文エラーを修正`
-- `refactor: 同期処理の構成を整理`
-
-## PR作成ルール
-Pull Requestを作成する際は、以下のルールに従ってください。
-- Pull Requestのタイトルは日本語にする
-- Pull Requestのタイトルにも Conventional Commits の type を使う (例: `docs: AGENTS.mdとPRテンプレートを追加`)
-- Pull Request本文は `.github/pull_request_template.md` に従って書くこと
-- テンプレートの各項目を空欄のままにしないこと
-- 該当しない項目は「該当なし」と書くこと
-- 変更種別を必ず1つ以上選ぶこと
-- 変更種別は「日本語名 / type」の形式で分かるようにすること
-- 受け入れ条件を明確に書くこと
-- 動作確認した内容があれば必ず書くこと
+## 2. 絶対厳守事項
+- **言語**: 回答、説明、コミットメッセージ、PRタイトル・本文、コードコメントはすべて**日本語**で記述すること（技術用語は英語のまま）。
+- **機密保持**: APIキー、シークレット、トークン、個人情報、`.env` ファイルは絶対に生成・出力・コミットしないこと。
+- **検証責任**: コード変更後は必ずローカルでテスト（`./gradlew test`）およびビルド（`./gradlew build`）を実行し、成功を確認してから報告すること。
