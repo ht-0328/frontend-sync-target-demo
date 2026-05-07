@@ -27,12 +27,15 @@ jobs:
       - name: Sync files
         run: |
           mkdir -p main-repo/synced/api/
+          # 同期元のファイルを同期先にコピーし、不要なファイルは削除する
           rsync -av --delete source-repo/sync-source/ main-repo/synced/api/
 
+          # 同期情報の生成に必要なコミットSHAを取得する
           cd source-repo
           COMMIT_SHA=$(git rev-parse HEAD)
           cd ../main-repo
 
+          # 同期情報をJSONファイルとして記録する
           cat << 'JSON' > synced/sync-info.json
           {
             "repository": "ht-0328/api-sync-source-demo",
