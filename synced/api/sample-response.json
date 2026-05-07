@@ -9,7 +9,12 @@
       "id": 2,
       "name": "鈴木 花子",
       "email": "hanako.suzuki@example.com"
+    },
+    {
+      "id": 3,
+      "name": "佐藤 次郎",
+      "email": "jiro.sato@example.com"
     }
   ],
-  "total": 2
+  "total": 3
 }

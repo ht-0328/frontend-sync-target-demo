@@ -1,0 +1,35 @@
+{
+  "endpoint": "/api/v1/users",
+  "method": "GET",
+  "parameters": {
+    "limit": 10,
+    "offset": 0
+  },
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer YOUR_TOKEN_HERE"
+  },
+  "examples": [
+    {
+      "description": "最初の10件を取得",
+      "params": {
+        "limit": 10,
+        "offset": 0
+      }
+    },
+    {
+      "description": "2ページ目を取得（1ページ10件）",
+      "params": {
+        "limit": 10,
+        "offset": 10
+      }
+    },
+    {
+      "description": "全件取得",
+      "params": {
+        "limit": 100,
+        "offset": 0
+      }
+    }
+  ]
+}
